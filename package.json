@@ -1,0 +1,22 @@
+{
+  "name": "memo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bignumber.js": "^7.2.1",
+    "body-parser": "^1.18.3",
+    "ethereumjs-testrpc": "^6.0.3",
+    "express": "^4.16.3",
+    "jade": "^1.11.0",
+    "mysql": "^2.16.0",
+    "socket.io": "^2.1.1",
+    "solc": "^0.4.24",
+    "web3": "^1.0.0-beta.35"
+  }
+}

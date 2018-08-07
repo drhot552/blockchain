@@ -1,0 +1,40 @@
+doctype html
+html
+  head
+    meta(charset='utf-8')
+    title 블록체인관련
+  body
+    h1 블록체인확인
+    span
+      form(action='/memo/songum' method='post')
+        p 계좌주소
+          if account
+            ul
+              each val, i in account
+                li
+                  a(href='/memo/'+i+'/'+val)= val
+        p 트랜잭션주소
+          if trans
+            ul
+              li #{trans}
+        p 블록체인넘버
+          if blocks
+            ul
+              li #{blocks}
+        p 송금
+            p From_address
+              input(type='text' name='account_from')
+            p To_address
+              input(type='text' name='account_to')
+            p ether
+              input(tpye='text' name='ether')
+            input(type='submit' value='송금')
+    span(style="float:left")
+      form(action='/memo/mining' method='post')
+        input(type='submit' value='채굴')
+    span(style="float:left")
+      form(action='/memo/account' method='post')
+        input(type='submit' value='계좌생성')
+    span
+      form(action='/memo/contract' method='post')
+        input(type='submit' value='스마트컨트랙트')

@@ -1,0 +1,27 @@
+doctype html
+html
+  head
+    meta(charset='utf-8')
+    title 스마트컨트랙트
+  body
+    h1
+      a(href='/memo/') 스마트컨트랙트확인
+    div(class="container")
+      p 컨트랙트계좌주소
+        if contract_acco
+          ul
+            li #{contract_acco}
+      p 가스양
+          input(type='text' name='gas')
+      p 트랜잭션_가스가격
+          input(type='text' name='gas_price')
+      p 트랜잭션주소
+        if trans
+          ul
+            li #{trans}
+    span(style="float:left")
+      form(action='/memo/' method='post')
+        input(type='submit' value='블록체인확인')
+    span(style="float:left")
+      form(action='/memo/' method='post')
+        input(type='submit' value='블록체인확인')
