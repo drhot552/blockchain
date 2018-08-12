@@ -7,10 +7,10 @@ html
     h1
       a(href='/memo/') 스마트컨트랙트확인
     div(class="container")
-      p 컨트랙트계좌주소
-        if contract_acco
+      p 컨트랙트실행계좌주소
+        if address
           ul
-            li #{contract_acco}
+            li #{address}
       p 가스양
           input(type='text' name='gas')
       p 트랜잭션_가스가격
@@ -19,9 +19,21 @@ html
         if trans
           ul
             li #{trans}
+      p 스마트컨트랙트주소
+        if contract_address
+          ul
+            li
+              =contract_address.s_address
+      p 스마트컨트랙트실행결과
+        if result
+          ul
+            li #{result}
     span(style="float:left")
-      form(action='/memo/' method='post')
-        input(type='submit' value='블록체인확인')
+      form(action='/memo/contractstart/' + contract_address.s_address, method='post')
+        input(type='submit' value='컨트랙트실행')
+    span(style="float:left")
+      form(action='/memo/contract/' + address, method='post')
+        input(type='submit' value='컨트랙트배포')
     span(style="float:left")
       form(action='/memo/' method='post')
         input(type='submit' value='블록체인확인')

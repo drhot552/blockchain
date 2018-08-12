@@ -3,27 +3,27 @@ var express = require('express');   //express객체생성
 var app = express();    //app설정
 var bodyParser = require('body-parser'); //post를위한 body-parser설정
 var mysql = require('mysql');   //db
-var BigNumber = require('bignumber.js');
+var fs = require('fs'); //file 시스템
 
 /* 스마트 컨트랙트 관련*/
-var fs = require('fs');
 var solc = require('solc');
 
 //blockchain 연결 -> web3
+var BigNumber = require('bignumber.js');
 var Web3 = require('web3');
 var web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
 
+
+//데이터베이스 커넥션..
 var conn = mysql.createConnection({
   host     : 'localhost',
   user     : 'root',
   password : 'alswo5293',
-  database : 'o2'
+  database : 'block'
 });
 conn.connect();
 
-
 /*smart Contract 예제 */
-
 // 계약올리기 -> miner를 통해서..
 
 //app use setting application/json body-parser
@@ -34,9 +34,10 @@ app.use('/public', express.static('uploads')); //middleware 정적인 파일을 
 app.set('views', './memo_file');
 app.set('view engine', 'jade');
 
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////Router 부분//////////////////////////////////////////////
-//블록체인 확인
+//블록체인 트랜잭션 확인
 app.get(['/memo', '/memo/trans/:trans'], function(req, res){
     var trans = req.params.trans;
   //  var accounts = web3.eth.accounts;
@@ -70,6 +71,20 @@ app.get('/memo/:id/:account', function(req,res){
   });
 });
 
+//new Account -> 메모.account주소
+app.post('/memo/account' , function(req,res){
+  console.log("new Account");
+  //계좌생성 비밀번호는 min으로 초기화
+  var account = web3.eth.personal.newAccount("min", function(err,account){
+      if(err){
+      }
+      else{
+        console.log(account);
+        res.redirect('/memo/');
+      }
+  });
+});
+
 //memo/songum -> 송금 관련 송금..
 app.post('/memo/songum', function(req,res){
   var from_account = req.body.account_from;
@@ -97,6 +112,7 @@ app.post('/memo/songum', function(req,res){
       var txHash = web3.eth.sendTransaction({
         from:from_account,
         to:to_account,
+        // ether-> towei로 변환하여
         value:web3.utils.toWei(ether,"ether")}, function(err,transaction){
           if(err){
             console.log(err);
@@ -113,54 +129,97 @@ app.post('/memo/songum', function(req,res){
   //계좌 locking 해제 후 계좌송금
 });
 
-
 //스마트컨트랙트 화면이동
 app.post('/memo/contract', function(req,res){
   //스마트컨트랙트 작동
-  web3.eth.getAccounts(function(err,accounts){
+  var sql = 'SELECT s_address FROM smartcontract WHERE id = 1';
+  conn.query(sql, function(err, address, fields){
     if(err){
       console.log(err);
+      res.status(500).send('Internal Server Error');
     }
-    //스마트컨트랙트 실행할 주소
-    var contract_account = accounts[0];
-    res.render('smartcontract', {contract_acco:contract_account});
+    console.log(address[0]);
+    web3.eth.getAccounts(function(err,accounts){
+      if(err){}
+      res.render('smartcontract', {address:accounts[0],contract_address:address[0]});
+    });
   });
 });
 
-app.post('/memo/contract/:account', function(req,res)
+//스마트 컨트랙트 실행 -> 스마트컨트랙트 Private Contract
+app.post('/memo/contractstart/:account', function(req,res){
+  //계좌번호
+  var account = req.params.account;
+  let source = fs.readFileSync("./contracts/HelloWorld.sol", 'utf8');
+  console.log('compiling contract .....');
+
+  let compiledContract = solc.compile(source);
+  console.log('done');
+
+  for (let contractName in compiledContract.contracts) {
+      // code and ABI that are needed by web3
+      var abi = JSON.parse(compiledContract.contracts[contractName].interface);
+      //console.log(JSON.stringify(abi, undefined, 2));
+  }
+  //계약한 주소
+  let MyContract = new web3.eth.Contract(abi, account);
+  //컨트랙트 주소 -> 컨트랙트를 배포 후 계속 사용은?? (트랜잭션 주소저장 -> (DB))
+  console.log("contract정보"+MyContract.options.address);
+  // Smart Contract 실행 -> 아스키 코드로 변환해야하는가?
+  // MyContract.methods.getMessage().call().then((result) => console.log(web3.utils.fromAscii(result))).catch(e => console.log(e));
+  MyContract.methods.getMessage().call(function(err, message){
+    if(err){}
+    //문자열 출력
+    var result  = web3.utils.toAscii(message).replace(/\u0000/g, '');
+    var sql = 'SELECT * from smartcontract where id = 1';
+
+    //스마트컨트랙트 주소
+    conn.query(sql, function(err, address, fields){
+      if(err){ console.log(err);}
+      res.render('smartcontract', {contract_address:address[0], result:result});
+    });
+
+  });
+});
+
+//스마트컨트랙트 배포  //스마트컨트랙트 작동 abi 및 주소값 컨트랙트로 값 설정
+app.post(['/memo/contract/:account'], function(req,res)
 {
+  var account = req.params.account;
+  //계좌번호 얻기
   web3.eth.getAccounts(function(err,accounts){
     if(err){
       console.log(err);
       res.status(500).send('Internal Server Error');
     }
-    let source = fs.readFileSync("./contracts/MyContract.sol", 'utf8');
+    let source = fs.readFileSync("./contracts/HelloWorld.sol", 'utf8');
     console.log('compiling contract .....');
 
     let compiledContract = solc.compile(source);
     console.log('done');
 
     for (let contractName in compiledContract.contracts) {
-        // code and ABI that are needed by web3
         // console.log(contractName + ': ' + compiledContract.contracts[contractName].bytecode);
         // console.log(contractName + '; ' + JSON.parse(compiledContract.contracts[contractName].interface));
         var bytecode = compiledContract.contracts[contractName].bytecode;
         var abi = JSON.parse(compiledContract.contracts[contractName].interface);
         console.log(JSON.stringify(abi, undefined, 2));
     }
+    var argHex = web3.utils.asciiToHex("hey");
     var address = accounts[0];
+
     //promise에 대한 공부.. estimateGas관련 개발
     var gasEstimate = '';
     web3.eth.estimateGas({to:address,data:'0x' + bytecode}, function(err,res){
         //
     });
-    //계약 주소..
+    //Contract 계약 주소..
     let MyContract = new web3.eth.Contract(abi);
-    console.log('deploying contract...');
+    console.log('deploying contract...' + MyContract.options.address);
     //deploy
-    MyContract.deploy({
-      data: bytecode
-      //arguments:[]
+    var delplyContractTx = MyContract.deploy({
+      data: bytecode,
+      arguments:[argHex]
     })
     .send({
       from: address,
@@ -168,7 +227,25 @@ app.post('/memo/contract/:account', function(req,res)
       gasPrice: '30000000000000',//가스가격
     })
     .then((instance) => {
+      var address = instance.options.address;
       console.log(`Address: ${instance.options.address}`);
+      //스마트 컨트랙트
+      var sql = 'INSERT INTO smartcontract (s_address) VALUES (?)';
+      conn.query(sql, [address], function(err, result, fields){
+        if(err){
+          console.log(err);
+          res.status(500).send('Internal Server Error');
+        }
+        //계좌정보를 set한다
+        var sql = 'SELECT s_address FROM smartcontract WHERE id = 1';
+        conn.query(sql, function(err, address, fields){
+          if(err){
+            console.log(err);
+            res.status(500).send('Internal Server Error');
+          }
+        });
+        res.render('smartcontract', {address:accounts[0], contract_address:address});
+      });
     });
   });
 });
@@ -181,43 +258,6 @@ app.post('/memo/mining', function(req,res){
     console.log(res);
   });
 });
-
-//new Account -> 메모.account주소
-app.post('/memo/account' , function(req,res){
-  console.log("new Account");
-  //계좌생성 비밀번호는 min으로 초기화
-  var account = web3.eth.personal.newAccount("min", function(err,account){
-      if(err){
-      }
-      else{
-        console.log(account);
-        res.redirect('/memo/');
-      }
-  });
-});
-
-//new Account
-
-
-//memo/add
-// app.post('/memo/add', function(req, res){    //router
-//   //descripion
-//   console.log('check');
-//   var title = req.body.title;
-//   var date = req.body.date;
-//   var description = req.body.description;
-//   var sql = 'INSERT INTO memo (title, date, description) VALUES(?, ?, ?)';
-//   conn.query(sql, [title,date,description],function(err, result, fields){
-//     if(err){
-//       console.log(err);
-//       res.status(500).send('Internal Server Error');
-//     }
-//     else{
-//       //memo_save.jade를 호춣한다.
-//       res.render('memo_save');
-//     }
-//   });
-// });
 
 //post
 app.post('/memo/save', function(req, res){
